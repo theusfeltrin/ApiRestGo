@@ -3,8 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
 )
@@ -22,6 +22,7 @@ type Address struct {
 }
 
 var people []Person
+var count int = 2
 
 // GetPeople show all contacts
 func GetPeople(w http.ResponseWriter, r *http.Request) {
@@ -31,19 +32,21 @@ func GetPeople(w http.ResponseWriter, r *http.Request) {
 // GetPerson shows only one contact
 func GetPerson(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
-	for _, item := range people {
-		if item.ID == params["id"] {
-			json.NewEncoder(w).Encode(item)
+	for _, person := range people {
+		if person.ID == params["id"] {
+			json.NewEncoder(w).Encode(person)
 			return
 		}
 	}
 	json.NewEncoder(w).Encode(&Person{})
 }
+
+// CreatePerson create a new contact
 func CreatePerson(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
 	var person Person
 	_ = json.NewDecoder(r.Body).Decode(&person)
-	person.ID = params["id"]
+	person.ID = strconv.Itoa(count + 1)
+	count++
 	people = append(people, person)
 	json.NewEncoder(w).Encode(people)
 }
@@ -51,8 +54,8 @@ func CreatePerson(w http.ResponseWriter, r *http.Request) {
 // DeletePerson delete a contact
 func DeletePerson(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
-	for index, item := range people {
-		if item.ID == params["id"] {
+	for index, person := range people {
+		if person.ID == params["id"] {
 			people = append(people[:index], people[index+1:]...)
 			break
 		}
@@ -62,12 +65,17 @@ func DeletePerson(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	router := mux.NewRouter()
+
+	// Define the API routes
 	people = append(people, Person{ID: "1", Firstname: "John", Lastname: "Doe", Address: &Address{City: "City X", State: "State X"}})
 	people = append(people, Person{ID: "2", Firstname: "Jane", Lastname: "Doe", Address: &Address{City: "City Z", State: "State Y"}})
 	router.HandleFunc("/contact", GetPeople).Methods("GET")
 	router.HandleFunc("/contact/{id}", GetPerson).Methods("GET")
-	router.HandleFunc("/contact/{id}", CreatePerson).Methods("POST")
+	router.HandleFunc("/contact", CreatePerson).Methods("POST")
 	router.HandleFunc("/contact/{id}", DeletePerson).Methods("DELETE")
-	fmt.Println()
-	log.Fatal(http.ListenAndServe(":8000", router))
+
+	// Start the HTTP server
+	http.Handle("/", router)
+	fmt.Println("Server is running on :8000")
+	http.ListenAndServe(":8000", nil)
 }
